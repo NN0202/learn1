@@ -1,0 +1,24 @@
+#第一问：特征选择
+#①数据预处理：清除缺失值、重复值、无关值（异常值）、方差过滤、3σ原则
+  #无缺失值，用可视化矩阵展示
+  #有一列重复值，分析代表的生物化学意义，以及对论文研究目的的作用，最终决定清除
+  #0-1归一化处理：将数据的数值范围调整到一个特定的区间，公式：norm= (X−X min)/(Xmax−X min)
+    import numpy as np
+    import pandas as pd
+    df = pd.DataFrame({ 'feature': [10, 20, 30, 40, 50, 60, 70, 80, 90, 100]})
+    df['normalized_feature'] = (df['feature'] - df['feature'].min()) / (df['feature'].max() - df['feature'].min())
+    # 设置阈值
+    lower_threshold = 0.1
+    upper_threshold = 0.9
+    # 过滤掉偏离过大的数据
+    df_filtered = df[(df['normalized_feature'] >= lower_threshold) & (df['normalized_feature'] <= upper_threshold)]
+    print(df_filtered)
+
+    # 设置方差阈值
+    variance_threshold = 0.5
+    # 计算每个特征的方差
+    variances = df.var()
+    # 找出方差大于阈值的特征
+    selected_features = variances[variances > variance_threshold].index
+    df_selected = df[selected_features]
+​	
