@@ -1,5 +1,5 @@
 #第一问：特征选择
-#①数据预处理：清除缺失值、重复值、无关值（异常值）、方差过滤、3σ原则
+#①数据预处理：清除缺失值、重复值、无关值（异常值、离群点）、方差过滤、3σ原则
   #无缺失值，用可视化矩阵展示
   #有一列重复值，分析代表的生物化学意义，以及对论文研究目的的作用，最终决定清除
   #0-1归一化处理：将数据的数值范围调整到一个特定的区间，公式：norm= (X−X min)/(Xmax−X min)
@@ -21,4 +21,35 @@
     # 找出方差大于阈值的特征
     selected_features = variances[variances > variance_threshold].index
     df_selected = df[selected_features]
+#②特征选择算法
+  #1.决策树：{用于分类和回归任务。它的工作原理是在每个节点选择一个特征进行分割，
+  特征选择的常用标准有：信息增益（ID3算法）、增益率（C4.5算法）和基尼不纯度（ CART 算法）将数据分割成不同的组，直到达到某个条件或结果。逻辑上：多个if-else}
+  
+  #解决回归例子：
+  from sklearn.datasets import make_regression
+  from sklearn.model_selection import train_test_split
+  from sklearn.tree import DecisionTreeRegressor
+  from sklearn.metrics import mean_squared_error
+  X, y = make_regression(n_samples=1000, n_features=1, noise=0.1)
+  # 划分训练集和测试集
+  X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+  # 创建决策树回归器实例
+  regressor = DecisionTreeRegressor(random_state=42)
+  # 训练模型
+  regressor.fit(X_train, y_train)
+  # 预测测试集
+  y_pred = regressor.predict(X_test)
+  # 计算均方误差
+  mse = mean_squared_error(y_test, y_pred)
+  print(f'Mean Squared Error: {mse}')
+  
+  #解决分类例子：
+  from sklearn.tree import DecisionTreeClassifier
+  clf = DecisionTreeClassifier(random_state=42)
+  clf.fit(X_train, y_train)
+  y_pred = clf.predict(X_test)
+  print(classification_report(y_test, y_pred, target_names=iris.target_names))
+ 
+  #2.梯度回升决策树LightGBM
+  #3.XGBoost
 ​	
