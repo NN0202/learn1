@@ -17,19 +17,87 @@
 前向传播（pn=输入的线性组合+bn，⭐On激活函数=f(pn)非线性化，y'=on的线性组合）-计算损失（误差）J=(y‘-y)**2-反向传播（梯度下降算法更新参数）θ参数new=θold-n*▼J(θ)
 
 #时间序列
-  题型：短期预测，数据随时间变化
+  题型：短期预测，预测变量随时间变化
   指数平滑法原理要点：1.预测的数据是由过去数据加权平均得到（贡献度不同）x_(t+1)=Σa_0 x_(t)....,Σa =1
                     2.权重系数是指数变化的a=α（1-α）i次方，i=1~t-1
                     3.权重系数公式中的超参数α的选取：0.8注重近期数据，0.3注重历史数据 0.5默认
-  一次指数平滑公式：St=αy+α（1-α）S(t-1) 其中y是t时刻数据实际值（观测值），s（t-1）隐含历史数据实际值的加权平均。St叫t时刻数据平滑值（估计值）
-  二次指数平滑公式：Lt=αy+α（1-α）（L(t-1) +T(t-1))  Tt=β(Lt-L(t-1))+（1-β)T(t-1），最终预测值y=Lt+hTt，h是预测步长
+                   一次指数平滑公式：St=αy+α（1-α）S(t-1) 其中y是t时刻数据实际值（观测值），s（t-1）隐含历史数据实际值的加权平均。St叫t时刻数据平滑值（估计值）
+                   二次指数平滑公式：Lt=αy+α（1-α）（L(t-1) +T(t-1))  Tt=β(Lt-L(t-1))+（1-β)T(t-1），最终预测值y=Lt+hTt，h是预测步长
  
    ARMA原理要点：1.AR：过去数据观测值的加权平均+白噪声项
                 2.MA：过去数据误差值的加权平均+白噪声项
-       步骤：数据集划分→                      白噪声检验（非纯随机序列才能建模）
-            train=data[:int(len(data)*0.8)]  ①自相关函数图②非自相关函数图③Ljung-box
-            test=data[:int(len(data)*0.2)]
-            predict=20
+                3.预测值y=c+AR+MA+当前误差项
+   ARIMA原理要点：1.差分后得到平稳序列
+                 2.分析平稳序列的ACF和PACF，进而估计模型参数
+                 3.用上述参数，建立ARMA模型
+                 4.评价指标用MSE MAE R²
+   实现步骤：数据预处理：折线图确定不平稳→ADF检验：若不平稳则要先进行d阶差分运算，化为平稳时间序列；若平稳则进行白噪声检验，非白噪声序列，则继续→ 确定模型参数：ACF+PACF或AIC BIC或PSO→模型预测和检验
+   代码框架：
+from __future__ import annotations
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+import statsmodels.api as sm
+from statsmodels.tsa.stattools import adfuller as ADF
+from statsmodels.stats.diagnostic import acorr_ljungbox
+from statsmodels.graphics.tsaplots import plot_acf, plot_pacf #ACF与PACF
+from statsmodels.tsa.arima.model import ARIMA #ARIMA模型
+from statsmodels.graphics.api import qqplot  #qq图
+from scipy import stats
+data=pd.read_excel('path')
+#ADF检验
+draw_acf_pacf(data,lags=50)
+def teststationarity(data, max_lag=None):
+    dftest = statsmodels.tsa.stattools.adfuller(ts, maxlag=max_lag)
+    # 对上述函数求得的值进行语义描述
+    dfoutput = pd.Series(dftest[0:4], index=['Test Statistic', 'p-value', '#Lags Used', 'Number of Observations Used'])
+    for key, value in dftest[4].items():
+        dfoutput['Critical Value (%s)' % key] = value
+    if(dfoutput['Test Statistic'] < dfoutput['Critical Value (1%)']):
+        print("ADF平稳性检验:")
+        print("****** Test Statistic < Critical Value (1%) ******\n             此序列为平稳序列")
+    return dfoutput    
+print(teststationarity(ts))# 平稳性检验
+# 进行差分处理
+diff1 = data.diff().dropna()#一阶差分
+diff2 = diff1.diff().dropna()#二阶差分
+diff3 = diff2.diff().dropna()#三阶差分
+#白噪声检验
+def test_stochastic(data, lags=24, alpha=0.05):#返回统计量和p值  lags为检验的延迟数
+    p_value = acorr_ljungbox(data, lags=lags) #lags可自定义
+    print(p_value)
+    if np.max(p_value['lb_pvalue']) < alpha:
+        return '该序列不是白噪声序列'
+    else:
+        return '该序列是白噪声序列'
+    return p_value
+    #返回统计量和p值,lb_pvalue>0.05则为白噪声序列
+print(test_stochastic(data,lags=3))
+# # 提取序列的趋势、季节和随机效应（残差）
+#分解成趋势（trend）季节性（seasonality）和残差（residual）****************************
+import statsmodels.api as sm
+res = sm.tsa.seasonal_decompose(data,period=7,model="add")
+fig = res.plot()
+# 调整图的大小
+fig = plt.gcf()
+fig.set_size_inches(15, 8)
+# # 自相关ACF，偏自相关PACF图像
+def draw_acf_pacf(ts,lags=12):
+    f = plt.figure()
+    ax1 = f.add_subplot(211)
+    plot_acf(ts,ax=ax1,lags=lags,color = 'royalblue')
+    plt.title("自相关性",fontdict={'weight':'normal','size': 15})
+    ax2 = f.add_subplot(212)
+    plot_pacf(ts,ax=ax2,lags=lags,color = 'royalblue')
+    plt.title("偏自相关性", fontdict={'weight': 'normal', 'size': 15})
+    # 调整图的大小
+    fig = plt.gcf()
+    fig.set_size_inches(15, 8)
+    #plt.subplots_adjust(hspace=0.5)
+    plt.show()
+
+
+         
 
 #回归分析（适合长期）
 #预测类模型检验方法：
@@ -37,5 +105,20 @@
 分类：A准确率 R召回率 P精确率
 
 
-通用代码：变量=pd.read_excel('文件名',usecols=['','',''],skiprows=跳过前几行,nrows=读取前几行（除跳过外）,index_cols='')
+通用代码：import math  
+from sklearn.metrics import mean_squared_error
+from sklearn.metrics import r2_score
+from sklearn.metrics import mean_absolute_error
+import matplotlib.pyplot as plt
+import pandas as pd
+data=pd.read_excel('文件名',usecols=['','',''],skiprows=跳过前几行,nrows=读取前几行（除跳过外）,index_cols='')   #header默认第一行为列名，header=None则无列名  names=新列名，index_col默认自动生成一列索引
+data.rename(columns={'data':'deal_data', 'time':'time_data'}, inplace = True)#更改列名
+data.set_index(['time_data'], inplace=True)#设置索引
+train=data[:int(len(data)*0.8)]
+test=data[int(len(data)*0.8):]
+
+plt.plot(x,y)#折线图 plt.bar(x,y)#条形图  plt.boxplot(data)#箱型图 plt.hist(data,bins=几个区间)#直方图
+plt.xlabel('') plt.ylabel('') plt.title('') 
+plt.show()
+         
 
